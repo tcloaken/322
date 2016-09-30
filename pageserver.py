@@ -17,6 +17,8 @@ import CONFIG    # Configuration options. Create by editing CONFIG.base.py
 import argparse  # Command line options (may override some configuration options)
 import socket    # Basic TCP/IP communication on the internet
 import _thread   # Response computation runs concurrently with main program 
+import os.path
+
 
 def listen(portnum):
     """
@@ -64,9 +66,9 @@ CAT = """
 ## HTTP response codes, as the strings we will actually send. 
 ##   See:  https://en.wikipedia.org/wiki/List_of_HTTP_status_codes
 ##   or    http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html
-## 
+##     "//", "~", or ".."
 STATUS_OK = "HTTP/1.0 200 OK\n\n"
-STATUS_FORBIDDEN = "HTTP/1.0 403 Forbidden\n\n"
+STATUS_FORBIDDEN = "HTTP/1.0 403 Forbidden\n\n" 
 STATUS_NOT_FOUND = "HTTP/1.0 404 Not Found\n\n"
 STATUS_NOT_IMPLEMENTED = "HTTP/1.0 401 Not Implemented\n\n"
 
@@ -81,12 +83,19 @@ def respond(sock):
     print("\nRequest was {}\n".format(request))
 
     parts = request.split()
-    if len(parts) > 1 and parts[0] == "GET":
+
+    if len(parts) >=1 and parts[0] == "GET" and os.path.isfile(str("./pages"+parts[1])):
         transmit(STATUS_OK, sock)
-        transmit(CAT, sock)
+        bigLineToTransmit = ""
+        for line in open("./pages/"+parts[1],'r'):
+            bigLineToTransmit+= line
+
+        transmit(bigLineToTransmit, sock)
+    elif len(parts) >=1 and parts[0] == "GET" and (parts[1].find("//") != -1 or parts[1].find("~") != -1 or parts[1].find("..") != -1) :
+        transmit(STATUS_FORBIDDEN, sock)
     else:
-        transmit(STATUS_NOT_IMPLEMENTED, sock)        
-        transmit("\nI don't handle this request: {}\n".format(request), sock)
+        transmit(STATUS_NOT_FOUND, sock)        
+        #transmit("\nI don't handle this request: {}\n".format(request), sock)
 
     sock.close()
     return
